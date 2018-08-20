@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block content %}
+    <script src="./static/js/wallet.js"></script>
+  <div class="jumbo">
+    <h5><strong id="addr">address: </strong></h5>
+    <!--<h5><strong id="money">account: </strong></h5>  -->
+  </div>
+
+    <form class="makeTransaction">
+        <label for="recipient" >recipient</label>
+        <input id="recipient"><br>
+        <label for="amount" >amount</label>
+        <input id="amount" type=number min=1 max=100 value=1>
+    </form>
+
+{% endblock %}
