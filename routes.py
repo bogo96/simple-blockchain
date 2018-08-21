@@ -6,7 +6,6 @@ from flask import Flask, jsonify, request, render_template
 from blockchain import Blockchain
 from uuid import uuid4
 from levelpy import leveldb
-from pymongo import MongoClient
 from ecdsa import SigningKey, NIST384p
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -119,12 +118,12 @@ def getInfo():
         amount = 100
         accountdb.put(wallet.encode(), 100)
 
-    for block in blockchain.chain:
-        for t in block['transactions']:
-            if t['sender']==wallet or t['recipient']==wallet:
-                my_transactions.append(t)
+    # for block in blockchain.chain:
+    #     for t in block['transactions']:
+    #         if t['sender']==wallet or t['recipient']==wallet:
+    #             my_transactions.append(t)
 
-    response = {'pubkey': wallet, 'amount': amount, 'transactions': my_transactions}
+    response = {'pubkey': wallet, 'amount': amount }
     return jsonify(response), 200
 
 

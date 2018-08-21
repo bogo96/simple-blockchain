@@ -5,7 +5,7 @@ $(document).ready(function () {
     $.get('/getInfo',function (response) {
         walletAddr = response.pubkey;
         amount = response.amount;
-        var my_transaction = response.transactions;
+        // var my_transaction = response.transactions;
 
         $('#addr').text("address: "+walletAddr);
         $('#money').text("amount: "+amount);
