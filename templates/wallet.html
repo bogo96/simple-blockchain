@@ -3,14 +3,26 @@
     <script src="./static/js/wallet.js"></script>
   <div class="jumbo">
     <h5><strong id="addr">address: </strong></h5>
-    <!--<h5><strong id="money">account: </strong></h5>  -->
+    <h5><strong id="money">account: </strong></h5>
   </div>
 
     <form class="makeTransaction">
         <label for="recipient" >recipient</label>
         <input id="recipient"><br>
         <label for="amount" >amount</label>
-        <input id="amount" type=number min=1 max=100 value=1>
+        <input id="amount" type=number min=1 max=100 value=1><br>
+        <button type="submit" id="send">send</button>
     </form>
+
+    <!--<h6>receipt</h6>-->
+    <!--<div >-->
+        <!--<table border="2" id="receipt">-->
+           <!--<tr>-->
+               <!--<th>Sender</th>-->
+               <!--<th>Recipient</th>-->
+               <!--<th>amount</th>-->
+           <!--</tr>-->
+        <!--</table>-->
+    <!--</div>-->
 
 {% endblock %}
