@@ -47,7 +47,6 @@ class Blockchain(object):
                     "sender": data['sender'],
                     "recipient": data['recipient'],
                     "amount": data['amount'],
-                    # "signature": sig
                 }
                 if data['hash'] == self.hash(transaction):
                     self.new_transaction(data['sender'], data['recipient'], data['amount'], data['hash'],sig)
@@ -84,8 +83,6 @@ class Blockchain(object):
             'hash': hash,
             'signature': str(sig)
         })
-
-        # return self.last_block['index'] + 1
 
     @property
     def last_block(self):
@@ -139,8 +136,6 @@ class Blockchain(object):
         :return: None
         """
 
-        # parsed_url = urlparse(address)
-        # self.nodes.add(parsed_url.netloc)
         self.nodes.add(address)
 
     def valid_chain(self, chain):

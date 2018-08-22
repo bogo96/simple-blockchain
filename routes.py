@@ -32,7 +32,6 @@ wallet = ''
 amount = -1
 
 
-# @app.route('/mine', methods=['GET'])
 def mine():
     if not blockchain.current_signatures:
         return
@@ -70,9 +69,6 @@ def mine():
 
     # Put DB
     db.Put(('block-' + str(block['index'])).encode(), json.dumps(block, sort_keys=True).encode())
-    print(db.Get(('block-' + str(block['index'])).encode()).decode())
-
-    # return render_template('wallet.html')
 
 
 @app.route('/')
@@ -91,16 +87,14 @@ def login():
     keyword = request.form['keyword']
 
     # Create privatekey, publickey
-    keywordByte = binascii.hexlify(keyword.encode())
+    keyword_byte = binascii.hexlify(keyword.encode())
 
-    while len(keywordByte) < 48:
-        keywordByte = keywordByte + b'0'
-    privkey = SigningKey.from_string(keywordByte, curve=NIST384p)
+    while len(keyword_byte) < 48:
+        keyword_byte = keyword_byte + b'0'
+    privkey = SigningKey.from_string(keyword_byte, curve=NIST384p)
     pubkey = privkey.get_verifying_key()
 
     wallet = hashlib.sha256(keyword.encode()).hexdigest()
-    # for b in pubkey.to_string():
-    #     wallet += "%02x" % b
 
     return jsonify({}), 200
 
@@ -108,7 +102,6 @@ def login():
 @app.route('/getInfo', methods=['GET'])
 def getInfo():
     global wallet, amount
-    my_transactions=[]
 
     for key, value in accountdb.items():
         if key == wallet.encode():
@@ -117,11 +110,6 @@ def getInfo():
     if amount == -1:
         amount = 100
         accountdb.put(wallet.encode(), 100)
-
-    # for block in blockchain.chain:
-    #     for t in block['transactions']:
-    #         if t['sender']==wallet or t['recipient']==wallet:
-    #             my_transactions.append(t)
 
     response = {'pubkey': wallet, 'amount': amount }
     return jsonify(response), 200
@@ -185,7 +173,6 @@ def register_nodes():
 
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
-    # import pdb; pdb.set_trace()
     replaced = blockchain.resolve_conflicts(host+':'+port)
     print(replaced)
     if replaced:
@@ -227,7 +214,6 @@ scheduler.start()
 
 for key, value in db.items():
     blockchain.chain.append(json.loads(value))
-    # print(json.loads(value))
 
 if __name__ == '__main__':
     app.run(host=host, port=int(port))
