@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block content %}
+    <script src="./static/js/login.js"></script>
+  <div class="jumbo">
+      <form method="get" action="{{ url_for('wallet') }}" >
+        <label for="privkey"> private key</label>
+        <input id="privkey" > <button type="submit" id="privkeySubmit">submit</button>
+      </form>
+  </div>
+
+{% endblock %}

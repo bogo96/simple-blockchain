@@ -1,7 +1,8 @@
 import json
 import binascii
 import sys
-from flask import Flask, jsonify, request
+import hashlib
+from flask import Flask, jsonify, request, render_template
 from blockchain import Blockchain
 from uuid import uuid4
 from levelpy import leveldb
@@ -10,6 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 # Instantiate our Node
 app = Flask(__name__)
+scheduler = BackgroundScheduler()
 
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
@@ -22,8 +24,12 @@ blockchain.register_node(host+':'+port)
 
 # Create levelDB
 db = leveldb.LevelDB('./db/'+port, create_if_missing=True)
+accountdb = leveldb.LevelDB('./db/account', create_if_missing=True)
 
-scheduler = BackgroundScheduler()
+# Initialize
+privkey = pubkey = b''
+wallet = ''
+amount = -1
 
 
 # @app.route('/mine', methods=['GET'])
@@ -36,6 +42,17 @@ def mine():
     last_proof = last_block['proof']
     proof = blockchain.proof_of_work(last_proof)
 
+    # Check validation of transactions
+    blockchain.valid_transaction()
+
+    # Update DB
+    for transaction in blockchain.current_transactions:
+        sender_money = accountdb.Get(transaction['sender'].encode())
+        recipient_money = accountdb.Get(transaction['recipient'].encode())
+        send_money = transaction['amount']
+        accountdb.put(transaction['sender'].encode(), int(sender_money)-int(send_money))
+        accountdb.put(transaction['recipient'].encode(), int(recipient_money) + int(send_money))
+
     # We must receive a reward for finding the proof.
     # The sender is "0" to signify that this node has mined a new coin.
     first_hash = blockchain.hash({'sender': '0', 'recipient': node_identifier, 'amount': 1})
@@ -43,11 +60,9 @@ def mine():
         sender="0",
         recipient=node_identifier,
         amount=1,
-        hash=first_hash
+        hash=first_hash,
+        sig=port
     )
-
-    # Check validation of transactions
-    blockchain.valid_transaction()
 
     # Forge the new Block by adding it to the chain
     previous_hash = blockchain.hash(last_block)
@@ -57,48 +72,84 @@ def mine():
     db.Put(('block-' + str(block['index'])).encode(), json.dumps(block, sort_keys=True).encode())
     print(db.Get(('block-' + str(block['index'])).encode()).decode())
 
-    # response = {
-    #     'message': "New Block Forged",
-    #     'index': block['index'],
-    #     'transactions': block['transactions'],
-    #     'proof': block['proof'],
-    #     'previous_hash': block['previous_hash'],
-    # }
-    # return jsonify(response), 200
+    # return render_template('wallet.html')
+
+
+@app.route('/')
+def home():
+    return render_template('login.html')
+
+
+@app.route('/wallet')
+def wallet():
+    return render_template('wallet.html')
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    global privkey, pubkey, wallet
+    keyword = request.form['keyword']
+
+    # Create privatekey, publickey
+    keywordByte = binascii.hexlify(keyword.encode())
+
+    while len(keywordByte) < 48:
+        keywordByte = keywordByte + b'0'
+    privkey = SigningKey.from_string(keywordByte, curve=NIST384p)
+    pubkey = privkey.get_verifying_key()
+
+    wallet = hashlib.sha256(keyword.encode()).hexdigest()
+    # for b in pubkey.to_string():
+    #     wallet += "%02x" % b
+
+    return jsonify({}), 200
+
+
+@app.route('/getInfo', methods=['GET'])
+def getInfo():
+    global wallet, amount
+    my_transactions=[]
+
+    for key, value in accountdb.items():
+        if key == wallet.encode():
+            amount = int(value)
+
+    if amount == -1:
+        amount = 100
+        accountdb.put(wallet.encode(), 100)
+
+    # for block in blockchain.chain:
+    #     for t in block['transactions']:
+    #         if t['sender']==wallet or t['recipient']==wallet:
+    #             my_transactions.append(t)
+
+    response = {'pubkey': wallet, 'amount': amount }
+    return jsonify(response), 200
 
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
-    # import pdb; pdb.set_trace()
-    values = request.get_json()
+    global privkey, pubkey
+    values = request.form
 
     # Check that the required fields are in the POST'ed data
-    required = ['sender', 'recipient', 'amount', 'keyword']
+    required = ['recipient', 'amount']
     if not all(k in values for k in required):
         return 'Missing values', 400
 
-    transaction_hash = blockchain.hash(values)
+    transaction_hash = blockchain.hash({'sender': wallet, 'recipient': values['recipient'], 'amount': values['amount']})
     values_string = json.dumps({
-        "sender": values['sender'],
+        "sender": wallet,
         "recipient": values['recipient'],
         "amount": values['amount'],
         "hash": transaction_hash,
-        "keyword": values['keyword']
     }, sort_keys=True).encode()
-
-    # Create privatekey, publickey
-    keyword = binascii.hexlify(values['keyword'].encode())
-    while len(keyword)<48:
-        keyword = keyword + b'0'
-    privkey = SigningKey.from_string(keyword, curve=NIST384p)
-    pubkey = privkey.get_verifying_key()
 
     # Transaction Signature
     sig = privkey.sign(values_string)
 
     # Create a new Transaction
     index = blockchain.new_signature(sig, values_string, pubkey)
-    # index = blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
 
     response = {'message': f'Transaction will be added to Block {index}'}
     return jsonify(response), 201
@@ -171,12 +222,12 @@ def deleteAll():
     return jsonify(response), 200
 
 
-scheduler.add_job(mine, 'interval', seconds=60)
+scheduler.add_job(mine, 'interval', seconds=30)
 scheduler.start()
 
 for key, value in db.items():
     blockchain.chain.append(json.loads(value))
-    print(json.loads(value))
+    # print(json.loads(value))
 
 if __name__ == '__main__':
     app.run(host=host, port=int(port))

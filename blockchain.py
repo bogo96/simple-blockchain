@@ -47,10 +47,10 @@ class Blockchain(object):
                     "sender": data['sender'],
                     "recipient": data['recipient'],
                     "amount": data['amount'],
-                    "keyword": data['keyword']
+                    # "signature": sig
                 }
                 if data['hash'] == self.hash(transaction):
-                    self.new_transaction(data['sender'], data['recipient'], data['amount'], data['hash'])
+                    self.new_transaction(data['sender'], data['recipient'], data['amount'], data['hash'],sig)
 
     def new_signature(self, sig, data, publickey):
         """
@@ -67,7 +67,7 @@ class Blockchain(object):
 
         return self.last_block['index'] + 1
 
-    def new_transaction(self, sender, recipient, amount, hash):
+    def new_transaction(self, sender, recipient, amount, hash, sig):
         """
         Creates a new transaction to go into the next mined Block
 
@@ -81,7 +81,8 @@ class Blockchain(object):
             'sender': sender,
             'recipient': recipient,
             'amount': amount,
-            'hash': hash
+            'hash': hash,
+            'signature': str(sig)
         })
 
         # return self.last_block['index'] + 1
