@@ -35,6 +35,6 @@ http POST request to http://ip:port/nodes/register
 }
 ```
 
-### Check chain
+### check chain
 
 http GET request to http://ip:port/chain
