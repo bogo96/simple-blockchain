@@ -1,14 +1,14 @@
 # simple-blockchain
 
 ### install
-'''
+```
 pip install -r requirements.txt
-'''
+```
 
 ### start
-'''
+```
 python3 route.py ip port
-'''
+```
 
 ### make your own private, public key
 
@@ -29,11 +29,11 @@ your server mining every 30seconds if there are transaction
 
 if you want to add other nodes, then
 http POST request to http://ip:port/nodes/register
-'''
+```
 {
   'nodes' : []
 }
-'''
+```
 
 ### Check chain
 
