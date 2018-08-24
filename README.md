@@ -34,16 +34,18 @@ python3 route.py ip port
 
 your server mining every 30seconds if there are transaction
 
+### check chain
+
+http GET request to http://***ip:port***/chain
+
 ### adding nodes
 
 if you want to add other nodes, then
 http POST request to http://***ip:port***/nodes/register
+json form should be like below
 ```
 {
-  'nodes' : []
+  'nodes' : [ip:port, ip:port,,,]
 }
 ```
 
-### check chain
-
-http GET request to http://***ip:port***/chain
