@@ -2,7 +2,6 @@ import hashlib
 import json
 import requests
 from time import time
-from urllib.parse import urlparse
 
 
 class Blockchain(object):
@@ -151,9 +150,7 @@ class Blockchain(object):
 
         while current_index < len(chain):
             block = chain[current_index]
-            print(f'{last_block}')
-            print(f'{block}')
-            print("\n-----------\n")
+
             # Check that the hash of the block is correct
             if block['previous_hash'] != self.hash(last_block):
                 return False
@@ -166,6 +163,14 @@ class Blockchain(object):
             current_index += 1
 
         return True
+
+    def difference_chain(self, chain):
+        small_len = len(self.chain)
+        for i in range(small_len-1,-1,-1):
+            if chain[i]['previous_hash'] == self.chain[i]['previous_hash']:
+                break
+
+        return i
 
     def resolve_conflicts(self,current):
         """
@@ -184,22 +189,27 @@ class Blockchain(object):
         # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
             if current == node:
-                return False
+                continue
             response = requests.get(f'http://{node}/chain')
 
             if response.status_code == 200:
-                length = response.json()['length']
+                length = response.json()['chain_length']
+                nodes_length = response.json()['nodes_length']
                 chain = response.json()['chain']
 
                 # Check if the length is longer and the chain is valid
                 if length > max_length and self.valid_chain(chain):
                     max_length = length
                     new_chain = chain
+                    index = self.difference_chain(chain)
+                elif length == max_length and nodes_length > len(self.nodes) and self.valid_chain(chain):
+                    new_chain = chain
+                    index = self.difference_chain(chain)
 
         # Replace our chain if we discovered a new, valid chain longer than ours
         if new_chain:
             self.chain = new_chain
-            return True
+            return True, index
 
-        return False
+        return False, 0
 

@@ -18,16 +18,17 @@ scheduler = BackgroundScheduler()
 
 # Generate a globally unique address for this node
 node_identifier = str(uuid4()).replace('-', '')
-host = sys.argv[1]
+ip = sys.argv[1]
 port = sys.argv[2]
+host = ip+":"+port
 
 # Instantiate the Blockchain
 blockchain = Blockchain()
-blockchain.add_nodes('192.168.0.24:5006')
+blockchain.register_node('192.168.0.7:5006')
 
 # Create levelDB
-db = leveldb.LevelDB('./db/'+port, create_if_missing=True)
-accountdb = leveldb.LevelDB('./db/account/'+port, create_if_missing=True)
+db = leveldb.LevelDB('./db/'+host, create_if_missing=True)
+accountdb = leveldb.LevelDB('./db/account/'+host, create_if_missing=True)
 
 
 def mine():
@@ -42,7 +43,12 @@ def mine():
     # Check validation of transactions
     blockchain.valid_transaction()
 
-    # Update DB
+    # chain resolve
+    replaced, index = blockchain.resolve_conflicts(host)
+    if replaced:
+        update_db(index)
+
+    # Update account DB
     for transaction in blockchain.current_transactions:
         send_money = transaction['amount']
         for key, value in accountdb.items():
@@ -70,7 +76,6 @@ def mine():
 
     # Put DB
     db.Put(('block-' + str(block['index'])).encode(), json.dumps(block, sort_keys=True).encode())
-    print("mine END")
 
 
 def add_nodes(nodes):
@@ -79,6 +84,11 @@ def add_nodes(nodes):
 
     for node in nodes:
         blockchain.register_node(node)
+
+
+def update_db(index):
+    for i in range(index, len(blockchain.chain)):
+        db.Put(('block-' + str(i)).encode(), json.dumps(blockchain.chain[index], sort_keys=True).encode())
 
 
 @app.route('/')
@@ -135,26 +145,22 @@ def get_info():
 @app.route('/spread_info', methods=['POST', 'GET'], endpoint='spread_info')
 def spread_info():
     if request.method == 'GET':
-        print("info get")
         amount = request.args.get('amount')
         wallet = session['wallet']
-        data = {'wallet': wallet, 'amount': amount, 'node': host+":"+port}
+        data = {'wallet': wallet, 'amount': amount, 'node': host}
 
         new_nodes = set()
         for node in blockchain.nodes:
-            print(host + ":" + port+ "///"+node)
+            if node == host: continue
             response = requests.post("http://"+node+"/spread_info", data=data)
             for res_node in json.loads(response.text)['nodes']:
-                if node != host + ":" + port:
+                if node != host:
                     new_nodes.add(res_node)
 
         add_nodes(new_nodes)
-
-        session['spread'] = True
         return jsonify(data), 200
 
     elif request.method == 'POST':
-        print("info post")
         accountdb.put(request.form['wallet'].encode(), request.form['amount'])
         response = {'nodes': list(blockchain.nodes)}
         blockchain.register_node(request.form['node'])
@@ -183,9 +189,6 @@ def make_signature():
 
     # Transaction Signature
     sig = privkey.sign(values_string)
-    print(type(sig))
-    print(sig)
-    print(str(sig))
     req = {"sig": sig, "values_string": values_string}
     return redirect(url_for('spread_transaction', req=req))
 
@@ -193,32 +196,25 @@ def make_signature():
 @app.route('/transactions/spread', methods=['POST', 'GET'], endpoint='spread_transaction')
 def spread_transaction():
     if request.method == 'GET':
-        print("transactions get")
         req = request.args.get('req')
         sig = ast.literal_eval(req)['sig']
         values_string = ast.literal_eval(req)['values_string']
         pubkey_string = session['pubkey']
         pubkey = VerifyingKey.from_string(pubkey_string, curve=NIST384p)
 
-        print(type(pubkey_string))
-        print(pubkey_string)
-
         data = {
-            'sig': sig,
+            'sig': sig.hex(),
             'values_string': values_string,
-            'pubkey': pubkey_string
+            'pubkey': pubkey_string.hex()
         }
         for node in blockchain.nodes:
-            if node != host+":"+port:
-                import pdb;pdb.set_trace()
-                requests.post("http://" + node + "/transactions/spread", json=json.loads(data))
+            if node != host:
+                requests.post("http://" + node + "/transactions/spread", data=data)
 
     elif request.method == 'POST':
-        print("transactions post")
-        import pdb;pdb.set_trace()
-        sig = request.form['sig']
-        values_string = request.form['values_string']
-        pubkey_string = request.form['pubkey']
+        sig = bytes.fromhex(request.form['sig'])
+        values_string = request.form['values_string'].encode()
+        pubkey_string = bytes.fromhex(request.form['pubkey'])
         pubkey = VerifyingKey.from_string(pubkey_string, curve=NIST384p)
 
     # Create a new Transaction
@@ -233,7 +229,8 @@ def full_chain():
 
     response = {
         'chain': blockchain.chain,
-        'length': len(blockchain.chain),
+        'chain_length': len(blockchain.chain),
+        'nodes_length': len(blockchain.nodes)
     }
     return jsonify(response), 200
 
@@ -259,7 +256,7 @@ def register_nodes():
 
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
-    replaced = blockchain.resolve_conflicts(host+':'+port)
+    replaced, index = blockchain.resolve_conflicts(host)
 
     if replaced:
         # delete all
@@ -283,7 +280,7 @@ def consensus():
     return jsonify(response), 200
 
 
-@app.route('/deleteDB', methods=['GET'])
+@app.route('/updateDB', methods=['POST'])
 def delete_all():
     for key, value in db.items():
         db.Delete(key)
@@ -302,4 +299,4 @@ for key, value in db.items():
     blockchain.chain.append(json.loads(value))
 
 if __name__ == '__main__':
-    app.run(host=host, port=int(port))
+    app.run(host=ip, port=int(port))
