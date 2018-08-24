@@ -1,9 +1,15 @@
 # simple-blockchain
 
 ### install
+
+1.download the file
+2. 
 ```
-pip install -r requirements.txt
+pip install -r requirements.txt --user
 ```
+3. create folders in simple-blockchain folder
+  ./db
+  ./db/account
 
 ### start
 ```
