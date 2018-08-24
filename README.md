@@ -2,7 +2,7 @@
 
 ### install
 
-1.download the file
+1. download the file
 
 2. 
 ```
@@ -10,9 +10,9 @@ pip install -r requirements.txt --user
 ```
 3. create folders in simple-blockchain folder
 
-  ./db
+    ./db
   
-  ./db/account
+    ./db/account
 
 ### start
 ```
