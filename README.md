@@ -21,7 +21,7 @@ python3 route.py ip port
 
 ### make your own private, public key
 
-1. Go to http://ip:port
+1. Go to http://***ip:port***
 2. The input value makes your own private, public key (you should remember it)
 
 ### make transaction
@@ -37,7 +37,7 @@ your server mining every 30seconds if there are transaction
 ### adding nodes
 
 if you want to add other nodes, then
-http POST request to http://ip:port/nodes/register
+http POST request to http://***ip:port***/nodes/register
 ```
 {
   'nodes' : []
@@ -46,4 +46,4 @@ http POST request to http://ip:port/nodes/register
 
 ### check chain
 
-http GET request to http://ip:port/chain
+http GET request to http://***ip:port***/chain
