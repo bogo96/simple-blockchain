@@ -4,7 +4,14 @@ body {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   color: #444;
 }
+.divider {
+  margin: 1rem 0;
+  padding: 2rem;
+}
 
+.divider-success:before, .divider-primary:before{
+      margin: 1rem 0;
+}
 header {
   background-color: #2B2B2B;
   height: 30px;

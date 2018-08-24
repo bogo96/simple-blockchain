@@ -1,28 +1,43 @@
 {% extends "layout.html" %}
 {% block content %}
     <script src="./static/js/wallet.js"></script>
-  <div class="jumbo">
-    <h5><strong id="addr">address: </strong></h5>
-    <h5><strong id="money">account: </strong></h5>
-  </div>
+    <div class="form-row">
+    <div class="col-lg-6">
+      <div class="krm-unit bg-white">
+        <div class="divider divider-primary">
+          <label class="bg-white divider-label">address</label>
+            <h5><strong id="addr"></strong></h5>
+            <label></label>
+        </div>
+        <div class="divider divider-success">
+          <label class="bg-white divider-label">amount</label>
+            <h5><strong id="money"></strong></h5>
+            <h1></h1>
+        </div>
+      </div>
+    </div>
 
     <form class="makeTransaction">
-        <label for="recipient" >recipient</label>
-        <input id="recipient"><br>
-        <label for="amount" >amount</label>
-        <input id="amount" type=number min=1 max=100 value=1><br>
-        <button type="submit" id="send">send</button>
+        <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text" id="inputGroup-sizing-default">recipient</span>
+            </div>
+            <input aria-describedby="inputGroup-sizing-default" aria-label="Default" class="form-control" id="recipient" type="text">
+        </div>
+        <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text" id="inputGroup-sizing-default">amount</span>
+            </div>
+            <input aria-describedby="inputGroup-sizing-default" aria-label="Default" class="form-control" id="amount" type=number min=1 max=100 value=1>
+        </div>
+        <div class="krm-unit">
+            <button class="btn btn-outline-primary" id="send">send</button>
+        </div>
     </form>
 
-    <!--<h6>receipt</h6>-->
-    <!--<div >-->
-        <!--<table border="2" id="receipt">-->
-           <!--<tr>-->
-               <!--<th>Sender</th>-->
-               <!--<th>Recipient</th>-->
-               <!--<th>amount</th>-->
-           <!--</tr>-->
-        <!--</table>-->
+    <!--<div class="krm-unit">-->
+        <!--<div class="alert alert-primary" role="alert" id="alert">-->
+        <!--</div>-->
     <!--</div>-->
 
 {% endblock %}

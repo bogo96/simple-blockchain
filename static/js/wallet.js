@@ -3,12 +3,12 @@ $(document).ready(function () {
     var walletAddr, amount;
 
     $.get('/getInfo',function (response) {
-        walletAddr = response.pubkey;
+        walletAddr = response.wallet;
         amount = response.amount;
         // var my_transaction = response.transactions;
 
-        $('#addr').text("address: "+walletAddr);
-        $('#money').text("amount: "+amount);
+        $('#addr').text(walletAddr);
+        $('#money').text(amount);
         $('#money').attr('max',amount);
 
         // for (var i=0;i<my_transaction.count;i++) {
@@ -36,7 +36,7 @@ $(document).ready(function () {
         console.log(recipient)
 
         $.post('/transactions/new', { sender: walletAddr, recipient : recipient, amount: sendMoney }, function (response) {
-            alert("reload after 30seconds");
+            $('#alert').text("reload after 30seconds");
             console.log("success");
         });
 
