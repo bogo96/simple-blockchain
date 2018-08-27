@@ -1,11 +1,15 @@
 {% extends "layout.html" %}
 {% block content %}
     <script src="./static/js/login.js"></script>
-  <div class="jumbo">
+  <!--<div class="jumbo">-->
       <form method="get" action="{{ url_for('wallet') }}" >
-        <label for="privkey"> private key</label>
-        <input id="privkey" > <button type="submit" id="privkeySubmit">submit</button>
+      <div class="input-group mb-3">
+        <input aria-describedby="basic-addon2" aria-label="Recipient's username" class="form-control"  id="privkey" placeholder="private key" type="text">
+        <div class="input-group-append">
+          <button class="btn btn-secondary" id="privkeySubmit" type="submit"> submit</button>
+        </div>
+      </div>
       </form>
-  </div>
+  <!--</div>-->
 
 {% endblock %}
