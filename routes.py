@@ -121,7 +121,7 @@ def wallet():
 def login():
     keyword = request.form['keyword']
 
-    # Create privatekey, publickey
+    # Create private key, public key
     keyword_byte = binascii.hexlify(keyword.encode())
 
     while len(keyword_byte) < 48:
@@ -145,7 +145,7 @@ def get_info():
     if 'wallet' in session:
         wallet = session['wallet']
     else:
-        return jsonify({}), 404
+        return jsonify(), 404
 
     for key, value in accountdb.items():
         if key == wallet.encode():
