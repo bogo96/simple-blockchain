@@ -1,8 +1,6 @@
 
 $(document).ready(function () {
-    console.log("load");
     var walletAddr;
-    console.log(walletAddr);
 
     $('#privkeySubmit').click(()=> {
         var keyword = $('#privkey').val();

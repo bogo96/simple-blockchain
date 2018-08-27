@@ -1,10 +1,12 @@
+import os
 import json
 import binascii
 import sys
 import hashlib
 import ast
 import requests
-from flask import Flask, jsonify, request, render_template, session, redirect, url_for
+from flask import Flask, jsonify, request, render_template,\
+    session, redirect, url_for
 from blockchain import Blockchain
 from uuid import uuid4
 from levelpy import leveldb
@@ -24,9 +26,12 @@ host = ip+":"+port
 
 # Instantiate the Blockchain
 blockchain = Blockchain()
-blockchain.register_node('192.168.0.7:5006')
 
 # Create levelDB
+if not os.path.isdir('./db/account'):
+    os.mkdir('./db')
+    os.mkdir('./db/account')
+
 db = leveldb.LevelDB('./db/'+host, create_if_missing=True)
 accountdb = leveldb.LevelDB('./db/account/'+host, create_if_missing=True)
 
@@ -52,16 +57,25 @@ def mine():
     for transaction in blockchain.current_transactions:
         send_money = transaction['amount']
         for key, value in accountdb.items():
-            if key == transaction['recipient'].encode():
-                recipient_money = accountdb.Get(transaction['recipient'].encode())
-                accountdb.put(transaction['recipient'].encode(), int(recipient_money) + int(send_money))
-            elif key == transaction['sender'].encode():
-                sender_money = accountdb.Get(transaction['sender'].encode())
-                accountdb.put(transaction['sender'].encode(), int(sender_money) - int(send_money))
+            recipient_key = transaction['recipient'].encode()
+            sender_key = transaction['sender'].encode()
+
+            if key == recipient_key:
+                recipient_money = accountdb.Get(recipient_key)
+                accountdb.put(recipient_key,
+                              int(recipient_money) + int(send_money))
+            elif key == sender_key:
+                sender_money = accountdb.Get(sender_key)
+                accountdb.put(sender_key,
+                              int(sender_money) - int(send_money))
 
     # We must receive a reward for finding the proof.
     # The sender is "0" to signify that this node has mined a new coin.
-    first_hash = blockchain.hash({'sender': '0', 'recipient': node_identifier, 'amount': 1})
+    first_hash = blockchain.hash({
+        'sender': '0',
+        'recipient': node_identifier,
+        'amount': 1
+    })
     blockchain.new_transaction(
         sender="0",
         recipient=node_identifier,
@@ -75,7 +89,8 @@ def mine():
     block = blockchain.new_block(proof, previous_hash)
 
     # Put DB
-    db.Put(('block-' + str(block['index'])).encode(), json.dumps(block, sort_keys=True).encode())
+    db.Put(('block-' + str(block['index'])).encode(),
+           json.dumps(block, sort_keys=True).encode())
 
 
 def add_nodes(nodes):
@@ -88,7 +103,8 @@ def add_nodes(nodes):
 
 def update_db(index):
     for i in range(index, len(blockchain.chain)):
-        db.Put(('block-' + str(i)).encode(), json.dumps(blockchain.chain[index], sort_keys=True).encode())
+        db.Put(('block-' + str(i)).encode(),
+               json.dumps(blockchain.chain[index], sort_keys=True).encode())
 
 
 @app.route('/')
@@ -119,10 +135,10 @@ def login():
     session['pubkey'] = pubkey.to_string()
     session['privkey'] = privkey.to_string()
 
-    return jsonify({}), 200
+    return jsonify(), 200
 
 
-@app.route('/getInfo', methods=['GET'])
+@app.route('/info', methods=['GET'])
 def get_info():
     amount = -1
 
@@ -151,7 +167,8 @@ def spread_info():
 
         new_nodes = set()
         for node in blockchain.nodes:
-            if node == host: continue
+            if node == host:
+                continue
             response = requests.post("http://"+node+"/spread_info", data=data)
             for res_node in json.loads(response.text)['nodes']:
                 if node != host:
@@ -179,7 +196,11 @@ def make_signature():
     if not all(k in values for k in required):
         return 'Missing values', 400
 
-    transaction_hash = blockchain.hash({'sender': wallet, 'recipient': values['recipient'], 'amount': values['amount']})
+    transaction_hash = blockchain.hash({
+        'sender': wallet,
+        'recipient': values['recipient'],
+        'amount': values['amount']
+    })
     values_string = json.dumps({
         "sender": wallet,
         "recipient": values['recipient'],
@@ -193,7 +214,9 @@ def make_signature():
     return redirect(url_for('spread_transaction', req=req))
 
 
-@app.route('/transactions/spread', methods=['POST', 'GET'], endpoint='spread_transaction')
+@app.route('/transactions/spread',
+           methods=['POST', 'GET'],
+           endpoint='spread_transaction')
 def spread_transaction():
     if request.method == 'GET':
         req = request.args.get('req')
@@ -209,7 +232,8 @@ def spread_transaction():
         }
         for node in blockchain.nodes:
             if node != host:
-                requests.post("http://" + node + "/transactions/spread", data=data)
+                requests.post("http://" + node + "/transactions/spread",
+                              data=data)
 
     elif request.method == 'POST':
         sig = bytes.fromhex(request.form['sig'])
@@ -265,7 +289,8 @@ def consensus():
 
         # put all blocks of new chain
         for block in blockchain.chain:
-            db.Put(('block-' + str(block['index'])).encode(), str(block).encode())
+            db.Put(('block-' + str(block['index'])).encode(),
+                   str(block).encode())
 
         response = {
             'message': 'Our chain was replaced',
@@ -280,23 +305,11 @@ def consensus():
     return jsonify(response), 200
 
 
-@app.route('/updateDB', methods=['POST'])
-def delete_all():
-    for key, value in db.items():
-        db.Delete(key)
-
-    response = {
-        'message': 'Our db is removed',
-    }
-
-    return jsonify(response), 200
-
-
-scheduler.add_job(mine, 'interval', seconds=30)
-scheduler.start()
-
-for key, value in db.items():
-    blockchain.chain.append(json.loads(value))
-
 if __name__ == '__main__':
+    scheduler.add_job(mine, 'interval', seconds=30)
+    scheduler.start()
+
+    for key, value in db.items():
+        blockchain.chain.append(json.loads(value))
+
     app.run(host=ip, port=int(port))
