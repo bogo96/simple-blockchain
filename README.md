@@ -4,15 +4,15 @@
 
 1. download the file
 
-2. 
+2.
 ```
-pip install -r requirements.txt --user
+brew install leveldb
 ```
-3. create folders in simple-blockchain folder
 
-    ./db
-  
-    ./db/account
+3. 
+```
+pip3 install -r requirements.txt --user
+```
 
 ### start
 ```
