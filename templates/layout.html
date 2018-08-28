@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Flask App</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+        <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,600" rel="stylesheet">
+        <link href="https://static.line-scdn.net/koromo/edge/2.0-rc4/koromo.css" rel="stylesheet">
+        <script src="https://static.line-scdn.net/koromo/edge/2.0-rc4/koromo.js"></script>
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+
+      </head>
+      <body>
+        <div class="krm-unit">
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+              <a class="navbar-brand" href="#dummy"><img src="../static/image/line.png" height="18" alt="Line" /></a><a class="navbar-toggler" data-toggle="collapse" href="#navbarText"><i class="fas fa-fw fa-bars"></i></a>
+              <div class="navbar-collapse collapse" id="navbarText">
+                <div class="navbar-nav mr-auto">
+                  <a class="nav-item nav-link active" href="#dummy">wallet</a>
+                </div>
+              </div>
+            </nav>
+            </div>
+        <h1></h1>
+        <div class="container">
+          {% block content %}
+          {% endblock %}
+        </div>
+
+  </body>
+</html>

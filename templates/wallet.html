@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% block content %}
+    <script src="./static/js/wallet.js"></script>
+    <div class="form-row">
+    <div class="col-lg-6">
+      <div class="krm-unit bg-white">
+        <div class="divider divider-primary">
+          <label class="bg-white divider-label">address</label>
+            <h5><strong id="addr"></strong></h5>
+            <label></label>
+        </div>
+        <div class="divider divider-success">
+          <label class="bg-white divider-label">amount</label>
+            <h5><strong id="money"></strong></h5>
+            <h1></h1>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="transaction">
+    <form class="makeTransaction" >
+        <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text" id="inputGroup-sizing-default">recipient</span>
+            </div>
+            <input aria-describedby="inputGroup-sizing-default" aria-label="Default" class="form-control" id="recipient" type="text">
+        </div>
+        <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text" id="inputGroup-sizing-default">amount</span>
+            </div>
+            <input aria-describedby="inputGroup-sizing-default" aria-label="Default" class="form-control" id="amount" type=number min=1 max=100 value=1>
+        </div>
+        <div class="krm-unit">
+            <button class="btn btn-outline-primary" id="send">send</button>
+        </div>
+    </form>
+    </div>
+
+{% endblock %}
