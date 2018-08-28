@@ -12,6 +12,7 @@ from uuid import uuid4
 from levelpy import leveldb
 from ecdsa import SigningKey, VerifyingKey, NIST384p
 from apscheduler.schedulers.background import BackgroundScheduler
+from time import time
 
 # Instantiate our Node
 app = Flask(__name__)
@@ -39,12 +40,6 @@ accountdb = leveldb.LevelDB('./db/account/'+host, create_if_missing=True)
 def mine():
     if not blockchain.current_signatures:
         return
-
-    # We run the proof of work algorithm to get the next proof...
-    last_block = blockchain.last_block
-    last_proof = last_block['proof']
-    proof = blockchain.proof_of_work(last_proof)
-
     # Check validation of transactions
     blockchain.valid_transaction()
 
@@ -76,13 +71,43 @@ def mine():
         'recipient': node_identifier,
         'amount': 1
     })
+
+    # Create node's private key, public key
+    node_byte = binascii.hexlify(node_identifier.encode())
+    privkey = SigningKey.from_string(node_byte[0:48], curve=NIST384p)
+
+    values_string = json.dumps({
+        "sender": '0',
+        "recipient": node_identifier,
+        "amount": 1,
+        "hash": first_hash,
+    }, sort_keys=True).encode()
+
+    # Transaction Signature
+    sig = privkey.sign(values_string)
+
     blockchain.new_transaction(
         sender="0",
         recipient=node_identifier,
         amount=1,
         hash=first_hash,
-        sig=port
+        sig=sig
     )
+
+    # Adjust difficulty
+    run_time = time()-start_time
+    generate_block = len(blockchain.chain) - start_chain_len
+    block_generation_rate = generate_block / run_time
+
+    if block_generation_rate > 30:
+        blockchain.difficulty = blockchain.difficulty + 1
+    else:
+        blockchain.difficulty = 4
+
+    # We run the proof of work algorithm to get the next proof...
+    last_block = blockchain.last_block
+    last_proof = last_block['proof']
+    proof = blockchain.proof_of_work(last_proof)
 
     # Forge the new Block by adding it to the chain
     previous_hash = blockchain.hash(last_block)
@@ -138,7 +163,7 @@ def login():
     return jsonify(), 200
 
 
-@app.route('/info', methods=['GET'])
+@app.route('/info/load', methods=['GET'])
 def get_info():
     amount = -1
 
@@ -158,7 +183,7 @@ def get_info():
     return redirect(url_for('spread_info', amount=amount))
 
 
-@app.route('/spread_info', methods=['POST', 'GET'], endpoint='spread_info')
+@app.route('/info/spread', methods=['POST', 'GET'], endpoint='spread_info')
 def spread_info():
     if request.method == 'GET':
         amount = request.args.get('amount')
@@ -311,5 +336,6 @@ if __name__ == '__main__':
 
     for key, value in db.items():
         blockchain.chain.append(json.loads(value))
-
+    start_chain_len = len(blockchain.chain)
+    start_time = time()
     app.run(host=ip, port=int(port))

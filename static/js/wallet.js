@@ -1,7 +1,7 @@
 $(document).ready(function () {
     var walletAddr, amount;
 
-    $.get('/info',function (response) {
+    $.get('/info/load',function (response) {
         walletAddr = response.wallet;
         amount = response.amount;
 

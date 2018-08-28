@@ -7,6 +7,7 @@ from time import time
 class Blockchain(object):
 
     def __init__(self):
+        self.difficulty = 4
         self.chain = []
         self.current_transactions = []
         self.current_signatures = []
@@ -111,13 +112,13 @@ class Blockchain(object):
         """
 
         proof = 0
-        while self.valid_proof(last_proof, proof) is False:
+        while self.valid_proof(last_proof, proof, self.difficulty) is False:
             proof += 1
 
         return proof
 
     @staticmethod
-    def valid_proof(last_proof, proof):
+    def valid_proof(last_proof, proof, difficulty):
         """
         Validates the Proof: Does hash(last_proof, proof) contain 4 leading zeroes?
         :param last_proof: <int> Previous Proof
@@ -127,7 +128,7 @@ class Blockchain(object):
 
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
-        return guess_hash[:4] == "0000"
+        return guess_hash[:difficulty] == "0"*difficulty
 
     def register_node(self, address):
         """
