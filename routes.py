@@ -3,15 +3,14 @@ import json
 import binascii
 import sys
 import hashlib
-import ast
 import requests
-from flask import Flask, jsonify, request, render_template,\
-    session, redirect, url_for
+from flask import Flask, jsonify, request, render_template, session
 from blockchain import Blockchain
 from uuid import uuid4
 from levelpy import leveldb
 from ecdsa import SigningKey, VerifyingKey, NIST384p
 from apscheduler.schedulers.background import BackgroundScheduler
+from time import time
 
 # Instantiate our Node
 app = Flask(__name__)
@@ -39,12 +38,6 @@ accountdb = leveldb.LevelDB('./db/account/'+host, create_if_missing=True)
 def mine():
     if not blockchain.current_signatures:
         return
-
-    # We run the proof of work algorithm to get the next proof...
-    last_block = blockchain.last_block
-    last_proof = last_block['proof']
-    proof = blockchain.proof_of_work(last_proof)
-
     # Check validation of transactions
     blockchain.valid_transaction()
 
@@ -76,13 +69,43 @@ def mine():
         'recipient': node_identifier,
         'amount': 1
     })
+
+    # Create node's private key, public key
+    node_byte = binascii.hexlify(node_identifier.encode())
+    privkey = SigningKey.from_string(node_byte[0:48], curve=NIST384p)
+
+    values_string = json.dumps({
+        "sender": '0',
+        "recipient": node_identifier,
+        "amount": 1,
+        "hash": first_hash,
+    }, sort_keys=True).encode()
+
+    # Transaction Signature
+    sig = privkey.sign(values_string)
+
     blockchain.new_transaction(
         sender="0",
         recipient=node_identifier,
         amount=1,
         hash=first_hash,
-        sig=port
+        sig=sig
     )
+
+    # Adjust difficulty
+    run_time = time() - start_time
+    generate_block = len(blockchain.chain) - start_chain_len
+    block_generation_rate = generate_block / run_time
+
+    if block_generation_rate > 30:
+        blockchain.difficulty = blockchain.difficulty + 1
+    else:
+        blockchain.difficulty = 4
+
+    # We run the proof of work algorithm to get the next proof...
+    last_block = blockchain.last_block
+    last_proof = last_block['proof']
+    proof = blockchain.proof_of_work(last_proof)
 
     # Forge the new Block by adding it to the chain
     previous_hash = blockchain.hash(last_block)
@@ -135,7 +158,7 @@ def login():
     session['pubkey'] = pubkey.to_string()
     session['privkey'] = privkey.to_string()
 
-    return jsonify(), 200
+    return jsonify(), 201
 
 
 @app.route('/info', methods=['GET'])
@@ -155,39 +178,36 @@ def get_info():
         amount = 100
         accountdb.put(wallet.encode(), 100)
 
-    return redirect(url_for('spread_info', amount=amount))
+    data = {'wallet': wallet, 'amount': amount, 'node': host}
+    new_nodes = set()
+
+    for node in blockchain.nodes:
+        if node == host:
+            continue
+        response = requests.post("http://" + node + "/info/spread", data=data)
+        for res_node in json.loads(response.text)['nodes']:
+            if node != host:
+                new_nodes.add(res_node)
+
+    add_nodes(new_nodes)
+    return jsonify(data), 200
 
 
-@app.route('/spread_info', methods=['POST', 'GET'], endpoint='spread_info')
+@app.route('/info/spread', methods=['POST'])
 def spread_info():
-    if request.method == 'GET':
-        amount = request.args.get('amount')
-        wallet = session['wallet']
-        data = {'wallet': wallet, 'amount': amount, 'node': host}
+    accountdb.put(request.form['wallet'].encode(), request.form['amount'])
+    response = {'nodes': list(blockchain.nodes)}
+    blockchain.register_node(request.form['node'])
 
-        new_nodes = set()
-        for node in blockchain.nodes:
-            if node == host:
-                continue
-            response = requests.post("http://"+node+"/spread_info", data=data)
-            for res_node in json.loads(response.text)['nodes']:
-                if node != host:
-                    new_nodes.add(res_node)
-
-        add_nodes(new_nodes)
-        return jsonify(data), 200
-
-    elif request.method == 'POST':
-        accountdb.put(request.form['wallet'].encode(), request.form['amount'])
-        response = {'nodes': list(blockchain.nodes)}
-        blockchain.register_node(request.form['node'])
-        return jsonify(response), 200
+    return jsonify(response), 201
 
 
 @app.route('/transactions/new', methods=['POST'])
 def make_signature():
     privkey_string = session['privkey']
     privkey = SigningKey.from_string(privkey_string, curve=NIST384p)
+    pubkey_string = session['pubkey']
+    pubkey = VerifyingKey.from_string(pubkey_string, curve=NIST384p)
     wallet = session['wallet']
     values = request.form
 
@@ -210,36 +230,30 @@ def make_signature():
 
     # Transaction Signature
     sig = privkey.sign(values_string)
-    req = {"sig": sig, "values_string": values_string}
-    return redirect(url_for('spread_transaction', req=req))
+    data = {
+        'sig': sig.hex(),
+        'values_string': values_string,
+        'pubkey': pubkey_string.hex()
+    }
+
+    for node in blockchain.nodes:
+        if node != host:
+            requests.post("http://" + node + "/transactions/spread",
+                          data=data)
+
+    # Create a new Transaction
+    index = blockchain.new_signature(sig, values_string, pubkey)
+    response = {'message': f'Transaction will be added to Block {index}'}
+
+    return jsonify(response), 201
 
 
-@app.route('/transactions/spread',
-           methods=['POST', 'GET'],
-           endpoint='spread_transaction')
+@app.route('/transactions/spread', methods=['POST'])
 def spread_transaction():
-    if request.method == 'GET':
-        req = request.args.get('req')
-        sig = ast.literal_eval(req)['sig']
-        values_string = ast.literal_eval(req)['values_string']
-        pubkey_string = session['pubkey']
-        pubkey = VerifyingKey.from_string(pubkey_string, curve=NIST384p)
-
-        data = {
-            'sig': sig.hex(),
-            'values_string': values_string,
-            'pubkey': pubkey_string.hex()
-        }
-        for node in blockchain.nodes:
-            if node != host:
-                requests.post("http://" + node + "/transactions/spread",
-                              data=data)
-
-    elif request.method == 'POST':
-        sig = bytes.fromhex(request.form['sig'])
-        values_string = request.form['values_string'].encode()
-        pubkey_string = bytes.fromhex(request.form['pubkey'])
-        pubkey = VerifyingKey.from_string(pubkey_string, curve=NIST384p)
+    sig = bytes.fromhex(request.form['sig'])
+    values_string = request.form['values_string'].encode()
+    pubkey_string = bytes.fromhex(request.form['pubkey'])
+    pubkey = VerifyingKey.from_string(pubkey_string, curve=NIST384p)
 
     # Create a new Transaction
     index = blockchain.new_signature(sig, values_string, pubkey)
@@ -283,14 +297,7 @@ def consensus():
     replaced, index = blockchain.resolve_conflicts(host)
 
     if replaced:
-        # delete all
-        for key, value in db.items():
-            db.Delete(key)
-
-        # put all blocks of new chain
-        for block in blockchain.chain:
-            db.Put(('block-' + str(block['index'])).encode(),
-                   str(block).encode())
+        update_db(index)
 
         response = {
             'message': 'Our chain was replaced',
@@ -312,4 +319,6 @@ if __name__ == '__main__':
     for key, value in db.items():
         blockchain.chain.append(json.loads(value))
 
+    start_chain_len = len(blockchain.chain)
+    start_time = time()
     app.run(host=ip, port=int(port))
