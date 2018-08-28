@@ -2,16 +2,17 @@ import hashlib
 import json
 import requests
 from time import time
-from urllib.parse import urlparse
 
 
 class Blockchain(object):
 
     def __init__(self):
+        self.difficulty = 4
         self.chain = []
         self.current_transactions = []
         self.current_signatures = []
         self.nodes = set()
+
         # Create the genesis block
         self.new_block(previous_hash=1, proof=100)
 
@@ -47,10 +48,10 @@ class Blockchain(object):
                     "sender": data['sender'],
                     "recipient": data['recipient'],
                     "amount": data['amount'],
-                    # "signature": sig
                 }
                 if data['hash'] == self.hash(transaction):
-                    self.new_transaction(data['sender'], data['recipient'], data['amount'], data['hash'],sig)
+                    self.new_transaction(data['sender'], data['recipient'],
+                                         data['amount'], data['hash'], sig)
 
     def new_signature(self, sig, data, publickey):
         """
@@ -85,8 +86,6 @@ class Blockchain(object):
             'signature': str(sig)
         })
 
-        # return self.last_block['index'] + 1
-
     @property
     def last_block(self):
         return self.chain[-1]
@@ -99,7 +98,8 @@ class Blockchain(object):
         :return: <str>
         """
 
-        # We must make sure that the Dictionary is Ordered, or we'll have inconsistent hashes
+        # We must make sure that the Dictionary is Ordered,
+        # or we'll have inconsistent hashes
         block_string = json.dumps(block, sort_keys=True).encode()
 
         return hashlib.sha256(block_string).hexdigest()
@@ -114,13 +114,13 @@ class Blockchain(object):
         """
 
         proof = 0
-        while self.valid_proof(last_proof, proof) is False:
+        while self.valid_proof(last_proof, proof, self.difficulty) is False:
             proof += 1
 
         return proof
 
     @staticmethod
-    def valid_proof(last_proof, proof):
+    def valid_proof(last_proof, proof, difficulty):
         """
         Validates the Proof: Does hash(last_proof, proof) contain 4 leading zeroes?
         :param last_proof: <int> Previous Proof
@@ -130,7 +130,7 @@ class Blockchain(object):
 
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
-        return guess_hash[:4] == "0000"
+        return guess_hash[:difficulty] == "0" * difficulty
 
     def register_node(self, address):
         """
@@ -139,8 +139,6 @@ class Blockchain(object):
         :return: None
         """
 
-        # parsed_url = urlparse(address)
-        # self.nodes.add(parsed_url.netloc)
         self.nodes.add(address)
 
     def valid_chain(self, chain):
@@ -156,15 +154,15 @@ class Blockchain(object):
 
         while current_index < len(chain):
             block = chain[current_index]
-            print(f'{last_block}')
-            print(f'{block}')
-            print("\n-----------\n")
+
             # Check that the hash of the block is correct
             if block['previous_hash'] != self.hash(last_block):
                 return False
 
             # Check that the Proof of Work is correct
-            if not self.valid_proof(last_block['proof'], block['proof']):
+            if not self.valid_proof(last_block['proof'],
+                                    block['proof'],
+                                    self.difficulty):
                 return False
 
             last_block = block
@@ -172,7 +170,15 @@ class Blockchain(object):
 
         return True
 
-    def resolve_conflicts(self,current):
+    def difference_chain(self, chain):
+        small_len = len(self.chain)
+        for i in range(small_len-1, -1, -1):
+            if chain[i]['previous_hash'] == self.chain[i]['previous_hash']:
+                break
+
+        return i
+
+    def resolve_conflicts(self, current):
         """
         This is our Consensus Algorithm, it resolves conflicts
         by replacing our chain with the longest one in the network.
@@ -189,22 +195,28 @@ class Blockchain(object):
         # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
             if current == node:
-                return False
+                continue
             response = requests.get(f'http://{node}/chain')
 
             if response.status_code == 200:
-                length = response.json()['length']
+                length = response.json()['chain_length']
+                nodes_length = response.json()['nodes_length']
                 chain = response.json()['chain']
 
                 # Check if the length is longer and the chain is valid
                 if length > max_length and self.valid_chain(chain):
                     max_length = length
                     new_chain = chain
+                    index = self.difference_chain(chain)
+                elif length == max_length \
+                        and nodes_length > len(self.nodes) \
+                        and self.valid_chain(chain):
+                    new_chain = chain
+                    index = self.difference_chain(chain)
 
         # Replace our chain if we discovered a new, valid chain longer than ours
         if new_chain:
             self.chain = new_chain
-            return True
+            return True, index
 
-        return False
-
+        return False, 0
