@@ -128,7 +128,7 @@ class Blockchain(object):
 
         guess = f'{last_proof}{proof}'.encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
-        return guess_hash[:difficulty] == "0"*difficulty
+        return guess_hash[:difficulty] == "0" * difficulty
 
     def register_node(self, address):
         """
@@ -158,7 +158,7 @@ class Blockchain(object):
                 return False
 
             # Check that the Proof of Work is correct
-            if not self.valid_proof(last_block['proof'], block['proof']):
+            if not self.valid_proof(last_block['proof'], block['proof'],self.difficulty):
                 return False
 
             last_block = block
